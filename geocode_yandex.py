@@ -1,5 +1,4 @@
 import requests
-import json
 
 from logger import logger
 
@@ -8,7 +7,7 @@ def fetch_geocode_yandex_json(address):
     url = 'https://geocode-maps.yandex.ru/1.x/?format=json&geocode='
     url += address
     response = requests.get(url)
-    return response.text
+    return response.json()
 
 
 def get_geoobjects_yandex(geocode):
@@ -29,9 +28,8 @@ def get_info_from_geoobjects_yandex(geoobject):
 
 
 def parse_geocode_yandex_to_geoobjects(geocode):
-    geocode_dict = json.loads(geocode)
     try:
-        geoobjects_yandex = get_geoobjects_yandex(geocode_dict)
+        geoobjects_yandex = get_geoobjects_yandex(geocode)
     except AttributeError as e:
         logger.error(
             'Не удалось распарсить строку: {} ({})'.format(geocode, e)
