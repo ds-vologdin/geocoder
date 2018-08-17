@@ -1,6 +1,25 @@
 import requests
+import asyncio
+from aiohttp import ClientSession
 
 from logger import logger
+
+
+async def fetch_geocode_yandex_json_async(address):
+    url = 'https://geocode-maps.yandex.ru/1.x/?format=json&geocode={}'
+    async with ClientSession() as session:
+        async with session.get(url.format(address)) as response:
+            response_json = await response.json()
+            return (response_json, address)
+
+
+def fetch_geocode_yandex_json_from_addresses(addresses):
+    loop = asyncio.get_event_loop()
+    tasks = [
+        asyncio.ensure_future(fetch_geocode_yandex_json_async(address))
+        for address in addresses
+    ]
+    return loop.run_until_complete(asyncio.wait(tasks))
 
 
 def fetch_geocode_yandex_json(address):

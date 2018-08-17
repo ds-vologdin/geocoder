@@ -3,6 +3,7 @@ import logging
 import csv
 
 from geocode_yandex import fetch_geocode_yandex_json
+from geocode_yandex import fetch_geocode_yandex_json_from_addresses
 from geocode_yandex import parse_geocode_yandex_to_geoobjects
 from logger import convert_str_to_logging_level, logger
 
@@ -14,7 +15,7 @@ def parse_argv():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         '--address',
-        help='Если опция указан, поиск будет производиться по заданному адресу'
+        help='Если опция указана, поиск будет производиться по заданному адресу'
     )
     group.add_argument(
         '--csv-file',
@@ -73,9 +74,54 @@ def _set_geocode_to_csv(csv_file):
             write_geoobjects_to_csv_writer(output_writer, geoobdjects, row)
 
 
+def read_csv(csv_file):
+    try:
+        with open(csv_file, newline='') as input_file:
+            input_reader = csv.reader(input_file)
+            input_data = [row for row in input_reader]
+    except IOError as e:
+        logger.error(e)
+        raise e
+    return input_data
+
+
+def write_geocode_to_csv(csv_file, geoobdjects_for_all_addresses, addresses):
+    try:
+        with open(csv_file, 'w', newline='') as output_file:
+            output_writer = csv.writer(output_file)
+            for geoobdjects, address in geoobdjects_for_all_addresses:
+                write_geoobjects_to_csv_writer(
+                    output_writer, geoobdjects, addresses.get(address)
+                )
+    except IOError as e:
+        logger.error(e)
+        raise e
+
+
+def _set_geocode_to_csv_for_asinc(csv_file):
+    input_data = read_csv(csv_file)
+    # Словарь используем для быстрого поиска! Асинхронные запросы возвращают в
+    # ответы в случайном порядке, приходится искать к какому адресу относится
+    # тот или иной ответ
+    addresses = {
+        format_address(address): [address]+_
+        for address, *_ in input_data
+    }
+    done, _ = fetch_geocode_yandex_json_from_addresses(addresses.keys())
+    geoobdjects_for_all_addresses = []
+    for fut in done:
+        response, address = fut.result()
+        geoobdjects = parse_geocode_yandex_to_geoobjects(response)
+        geoobdjects_for_all_addresses.append((geoobdjects, address))
+    write_geocode_to_csv(
+        'output_'+csv_file, geoobdjects_for_all_addresses, addresses
+    )
+
+
 def set_geocode_to_csv(csv_file):
     try:
-        _set_geocode_to_csv(csv_file)
+        # _set_geocode_to_csv(csv_file)
+        _set_geocode_to_csv_for_asinc(csv_file)
     except IOError as e:
         logger.error(e)
         raise e
