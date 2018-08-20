@@ -1,6 +1,7 @@
 import argparse
 import logging
 import csv
+from typing import List, Dict
 
 from geocode_yandex import fetch_geocode_yandex_json
 from geocode_yandex import fetch_geocode_yandex_json_from_addresses
@@ -37,35 +38,38 @@ def parse_argv():
     return parser.parse_args()
 
 
-def format_address(raw_address, country='Россия', province='Кировская область',
-                   city='Киров'):
+def format_address(raw_address: str, country: str ='Россия',
+                   province: str='Кировская область',
+                   city: str='Киров') -> str:
     return ', '.join((country, province, city, raw_address))
 
 
-def output_result(geoobjects):
+def output_result(geoobjects: List[Dict[str, str]]) -> None:
     for geoobject in geoobjects:
         print('{};{}'.format(geoobject['point'], geoobject['address']))
 
 
-def get_geoobdjects_for_address(raw_address):
+def get_geoobdjects_for_address(raw_address: str) -> List:
     address = format_address(raw_address)
     geocode = fetch_geocode_yandex_json(address)
     return parse_geocode_yandex_to_geoobjects(geocode)
 
 
-def output_geocode_from_address(raw_address):
+def output_geocode_from_address(raw_address: str) -> None:
     geoobdjects = get_geoobdjects_for_address(raw_address)
     output_result(geoobdjects)
 
 
-def write_geoobjects_to_csv_writer(csv_writer, geoobdjects, row):
+def write_geoobjects_to_csv_writer(csv_writer,
+                                   geoobdjects: List[Dict[str, str]],
+                                   row: List[str]) -> None:
     for geoobdject in geoobdjects:
         output_row = [geoobdject['point'], geoobdject['address']]
         output_row += row
         csv_writer.writerow(output_row)
 
 
-def _set_geocode_to_csv(csv_file):
+def _set_geocode_to_csv(csv_file: str) -> None:
     with open(csv_file, newline='') as input_file, open('output_'+csv_file, 'w', newline='') as output_file:
         output_writer = csv.writer(output_file)
         for row in csv.reader(input_file):
@@ -74,7 +78,7 @@ def _set_geocode_to_csv(csv_file):
             write_geoobjects_to_csv_writer(output_writer, geoobdjects, row)
 
 
-def read_csv(csv_file):
+def read_csv(csv_file: str) -> List[List[str]]:
     try:
         with open(csv_file, newline='') as input_file:
             input_reader = csv.reader(input_file)
@@ -85,20 +89,23 @@ def read_csv(csv_file):
     return input_data
 
 
-def write_geocode_to_csv(csv_file, geoobdjects_for_all_addresses, addresses):
+def write_geocode_to_csv(csv_file: str,
+                         geoobdjects_for_all_addresses: List,
+                         addresses: Dict[str, List[str]]) -> None:
     try:
         with open(csv_file, 'w', newline='') as output_file:
             output_writer = csv.writer(output_file)
             for geoobdjects, address in geoobdjects_for_all_addresses:
+                row = addresses.get(address, [])  # type: List[str]
                 write_geoobjects_to_csv_writer(
-                    output_writer, geoobdjects, addresses.get(address)
+                    output_writer, geoobdjects, row
                 )
     except IOError as e:
         logger.error(e)
         raise e
 
 
-def _set_geocode_to_csv_for_asinc(csv_file):
+def _set_geocode_to_csv_for_asinc(csv_file: str) -> None:
     input_data = read_csv(csv_file)
     # Словарь используем для быстрого поиска! Асинхронные запросы возвращают в
     # ответы в случайном порядке, приходится искать к какому адресу относится
@@ -106,7 +113,7 @@ def _set_geocode_to_csv_for_asinc(csv_file):
     addresses = {
         format_address(address): [address]+_
         for address, *_ in input_data
-    }
+    }  # type: Dict[str, List[str]]
     done, _ = fetch_geocode_yandex_json_from_addresses(addresses.keys())
     geoobdjects_for_all_addresses = []
     for fut in done:
@@ -118,7 +125,7 @@ def _set_geocode_to_csv_for_asinc(csv_file):
     )
 
 
-def set_geocode_to_csv(csv_file):
+def set_geocode_to_csv(csv_file: str) -> None:
     try:
         # _set_geocode_to_csv(csv_file)
         _set_geocode_to_csv_for_asinc(csv_file)
@@ -127,7 +134,7 @@ def set_geocode_to_csv(csv_file):
         raise e
 
 
-def main():
+def main() -> None:
     args = parse_argv()
 
     logging.basicConfig(

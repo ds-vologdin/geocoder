@@ -1,7 +1,7 @@
 import logging
 
 
-def convert_str_to_logging_level(level_str=None):
+def convert_str_to_logging_level(level_str: str='warning') -> int:
     level_logging = {
         'debug': logging.DEBUG,
         'info': logging.INFO,
